@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Snippets App</title>
+    
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Prism.js CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+
+    <style>
+        body { background-color: #f8f9fa; }
+        pre { border-radius: 5px; }
+        .snippet-card { margin-bottom: 20px; }
+    </style>
+</head>
+<body class="container py-4">
+
+    <h1 class="text-center mb-4">💻 Snippets App</h1>
+
+    <!-- Formulaire -->
+    <div class="card mb-4">
+        <div class="card-header">Ajouter un snippet</div>
+        <div class="card-body">
+            <form id="snippetForm" class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" name="title" placeholder="Titre" required>
+                </div>
+                <div class="col-md-6">
+                    <select name="category" class="form-select" required>
+                        <option value="">Choisir catégorie</option>
+                        <option value="PHP">PHP</option>
+                        <option value="HTML">HTML</option>
+                        <option value="CSS">CSS</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <textarea name="description" class="form-control" placeholder="Description" required></textarea>
+                </div>
+                <div class="col-12">
+                    <textarea name="code" class="form-control" placeholder="Votre code" rows="5" required></textarea>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Filtre -->
+    <div class="mb-3">
+        <select id="filterCategory" class="form-select w-auto">
+            <option value="">Toutes catégories</option>
+            <option value="PHP">PHP</option>
+            <option value="HTML">HTML</option>
+            <option value="CSS">CSS</option>
+        </select>
+    </div>
+
+    <!-- Liste -->
+    <div id="snippetsList"></div>
+
+    <!-- JS Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-php.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000/api/snippets"; // Mets ton URL API complète
+
+        document.getElementById('snippetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            e.target.reset();
+            loadSnippets();
+        });
+
+        document.getElementById('filterCategory').addEventListener('change', loadSnippets);
+
+        async function loadSnippets() {
+            const category = document.getElementById('filterCategory').value;
+            let url = API_URL;
+            if (category) url += `?category=${category}`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Erreur API : ${res.status}`);
+                const snippets = await res.json();
+
+                if (!Array.isArray(snippets)) throw new Error("Données invalides");
+
+                document.getElementById('snippetsList').innerHTML = snippets.map(s => {
+                    const langClass = s.category.toLowerCase(); // php, html, css
+                    return `
+                        <div class="card snippet-card shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">${s.title} 
+                                    <span class="badge bg-secondary">${s.category}</span>
+                                </h5>
+                                <p class="card-text">${s.description}</p>
+                                <pre><code class="language-${langClass}">${escapeHTML(s.code)}</code></pre>
+                                <button class="btn btn-sm btn-outline-primary" onclick="copyCode(\`${s.code.replace(/`/g, '\\`')}\`)">📋 Copier</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                Prism.highlightAll();
+            } catch (err) {
+                document.getElementById('snippetsList').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+            }
+        }
+
+        function copyCode(text) {
+            navigator.clipboard.writeText(text);
+            alert("Code copié !");
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;");
+        }
+
+        loadSnippets();
+    </script>
+</body>
+</html>
